@@ -12,5 +12,10 @@ contextBridge.exposeInMainWorld('smartAI', {
   saveSocial: data => ipcRenderer.invoke('social:save', data),
   caption: topic => ipcRenderer.invoke('ai:caption', topic),
   publishPost: post => ipcRenderer.invoke('social:publish', post),
-  openExternal: url => ipcRenderer.invoke('external:open', url)
+  openExternal: url => ipcRenderer.invoke('external:open', url),
+  getVersion: () => ipcRenderer.invoke('app:version'),
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  restartToUpdate: () => ipcRenderer.invoke('update:restart'),
+  onUpdateStatus: cb => ipcRenderer.on('update:status', (_e, msg) => cb(msg)),
+  onUpdateDownloaded: cb => ipcRenderer.on('update:downloaded', () => cb())
 });
