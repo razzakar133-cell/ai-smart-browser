@@ -8,5 +8,9 @@ contextBridge.exposeInMainWorld('smartAI', {
   deleteTask: id => ipcRenderer.invoke('tasks:delete', id),
   addHistory: item => ipcRenderer.invoke('history:add', item),
   listHistory: () => ipcRenderer.invoke('history:list'),
+  getSocial: () => ipcRenderer.invoke('social:get'),
+  saveSocial: data => ipcRenderer.invoke('social:save', data),
+  caption: topic => ipcRenderer.invoke('ai:caption', topic),
+  publishPost: post => ipcRenderer.invoke('social:publish', post),
   openExternal: url => ipcRenderer.invoke('external:open', url)
 });
