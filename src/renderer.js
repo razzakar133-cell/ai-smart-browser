@@ -68,6 +68,7 @@ function addMessage(role, text, action) {
   }
   $('messages').appendChild(node);
   $('messages').scrollTop = $('messages').scrollHeight;
+  $('chatPanel').scrollTop = $('chatPanel').scrollHeight;
 }
 function proposeAction(action) {
   pendingAction = action;
