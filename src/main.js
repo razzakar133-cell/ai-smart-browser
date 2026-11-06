@@ -97,14 +97,20 @@ Never propose clicking, submitting forms, purchases, payments, deleting, sending
       const key = readJson(settingsPath, {}).geminiKey || process.env.GEMINI_API_KEY;
       if (!key) return { error: 'Gemini API key পাওয়া যায়নি। Settings-এ Gemini API Key বসাও (ফ্রি key: aistudio.google.com)।' };
       const prompt = system + '\n\n' + messages.slice(1).map(m => `${m.role}: ${m.content}`).join('\n');
-      const model = readJson(settingsPath, {}).geminiModel || process.env.GEMINI_MODEL || 'gemini-3.8-flash';
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3 } })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error?.message || 'Gemini API error');
-      raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const preferred = readJson(settingsPath, {}).geminiModel || process.env.GEMINI_MODEL || 'gemini-3.8-flash';
+      const candidates = [preferred, 'gemini-3.6-flash', 'gemini-3.5-flash-lite'].filter((m, i, a) => a.indexOf(m) === i);
+      let lastError = '';
+      for (const model of candidates) {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3 } })
+        });
+        const data = await response.json();
+        if (response.ok) { raw = data.candidates?.[0]?.content?.parts?.[0]?.text || ''; lastError = ''; break; }
+        lastError = data.error?.message || 'Gemini API error';
+        if (response.status !== 503 && response.status !== 429) break;
+      }
+      if (lastError) throw new Error(lastError);
     } else {
       const key = readJson(settingsPath, {}).openaiKey || process.env.OPENAI_API_KEY;
       if (!key) return { error: 'OpenAI API key পাওয়া যায়নি। Settings-এ OpenAI API Key বসাও।' };
