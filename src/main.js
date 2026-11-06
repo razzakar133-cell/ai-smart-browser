@@ -54,7 +54,8 @@ ipcMain.handle('settings:save', (_e, settings) => {
   const safe = {
     provider: settings.provider === 'gemini' ? 'gemini' : 'openai',
     geminiKey: String(settings.geminiKey || '').trim().slice(0, 200),
-    openaiKey: String(settings.openaiKey || '').trim().slice(0, 200)
+    openaiKey: String(settings.openaiKey || '').trim().slice(0, 200),
+    geminiModel: String(settings.geminiModel || '').trim().slice(0, 100) || 'gemini-3.8-flash'
   };
   writeJson(settingsPath, safe);
   return { ok: true };
@@ -96,7 +97,7 @@ Never propose clicking, submitting forms, purchases, payments, deleting, sending
       const key = readJson(settingsPath, {}).geminiKey || process.env.GEMINI_API_KEY;
       if (!key) return { error: 'Gemini API key পাওয়া যায়নি। Settings-এ Gemini API Key বসাও (ফ্রি key: aistudio.google.com)।' };
       const prompt = system + '\n\n' + messages.slice(1).map(m => `${m.role}: ${m.content}`).join('\n');
-      const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+      const model = readJson(settingsPath, {}).geminiModel || process.env.GEMINI_MODEL || 'gemini-3.8-flash';
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3 } })
