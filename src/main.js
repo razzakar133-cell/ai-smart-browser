@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 
@@ -46,9 +47,28 @@ function createWindow() {
 app.whenReady().then(() => {
   loadEnv();
   createWindow();
+  setupAutoUpdate();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+
+function setupAutoUpdate() {
+  if (!app.isPackaged) return;
+  autoUpdater.autoDownload = true;
+  autoUpdater.on('update-available', () => mainWindow?.webContents.send('update:status', 'নতুন ভার্সন পাওয়া গেছে — ডাউনলোড হচ্ছে…'));
+  autoUpdater.on('update-not-available', () => mainWindow?.webContents.send('update:status', 'তুমি সবশেষ ভার্সনেই আছো।'));
+  autoUpdater.on('error', (err) => mainWindow?.webContents.send('update:status', 'আপডেট চেক করা যায়নি: ' + (err?.message || 'অজানা ত্রুটি')));
+  autoUpdater.on('download-progress', (p) => mainWindow?.webContents.send('update:status', `ডাউনলোড হচ্ছে… ${Math.round(p.percent)}%`));
+  autoUpdater.on('update-downloaded', () => mainWindow?.webContents.send('update:downloaded'));
+  autoUpdater.checkForUpdates().catch(() => {});
+}
+ipcMain.handle('app:version', () => app.getVersion());
+ipcMain.handle('update:check', async () => {
+  if (!app.isPackaged) return { error: 'আপডেট শুধু ইনস্টল করা অ্যাপে কাজ করে।' };
+  try { await autoUpdater.checkForUpdates(); return { ok: true }; }
+  catch (err) { return { error: 'আপডেট চেক করা যায়নি: ' + err.message }; }
+});
+ipcMain.handle('update:restart', () => { autoUpdater.quitAndInstall(); return true; });
 
 ipcMain.handle('settings:get', () => readJson(settingsPath, { provider: process.env.AI_PROVIDER || 'openai' }));
 ipcMain.handle('settings:save', (_e, settings) => {
@@ -56,7 +76,8 @@ ipcMain.handle('settings:save', (_e, settings) => {
     provider: settings.provider === 'gemini' ? 'gemini' : 'openai',
     geminiKey: String(settings.geminiKey || '').trim().slice(0, 200),
     openaiKey: String(settings.openaiKey || '').trim().slice(0, 200),
-    geminiModel: String(settings.geminiModel || '').trim().slice(0, 100) || 'gemini-3.8-flash'
+    geminiModel: String(settings.geminiModel || '').trim().slice(0, 100) || 'gemini-3.8-flash',
+    autoRun: !!settings.autoRun
   };
   writeJson(settingsPath, safe);
   return { ok: true };
@@ -157,14 +178,18 @@ ipcMain.handle('social:publish', async (_e, post) => {
 ipcMain.handle('ai:chat', async (_e, payload) => {
   const provider = payload.provider || readJson(settingsPath, {}).provider || process.env.AI_PROVIDER || 'openai';
   const system = `You are Smart AI, a careful Bengali/English browser assistant. Reply in the user's language.
-You can propose at most ONE browser action. Return ONLY valid JSON with this shape:
+You control the browser step by step. Do ONE action per reply, then look at the result and choose the next step. Return ONLY valid JSON with this shape:
 {"reply":"short helpful answer","action":null}
 or {"reply":"explanation","action":{"type":"navigate","url":"https://example.com"}}
-Allowed action types: navigate, search, scroll, extract.
+Allowed action types: navigate, search, scroll, extract, click, type, wait.
 For search use {"type":"search","query":"..."}.
 For scroll use {"type":"scroll","direction":"down"}.
 For extract use {"type":"extract"}.
-Never propose clicking, submitting forms, purchases, payments, deleting, sending messages, or changing account settings. Never ask for passwords or OTPs. Do not claim an action was completed.`;
+For click use {"type":"click","text":"button or link text"} — clicks the matching button/link.
+For type use {"type":"type","text":"search box or field hint","value":"text to type"} — types into the matching input, then presses Enter.
+For wait use {"type":"wait","seconds":3}.
+Only use click/type on the page the user asked about. If the page text is not visible yet, use extract first.
+Publishing a post the user asked for is allowed. Never propose purchases, payments, deleting, sending private messages (DMs) to people, or changing account settings. Never ask for passwords or OTPs. Do not claim an action was completed.`;
   const messages = [{ role: 'system', content: system }, ...(payload.messages || []).slice(-12)];
   try {
     let raw = '';
@@ -199,7 +224,7 @@ Never propose clicking, submitting forms, purchases, payments, deleting, sending
     }
     const cleaned = raw.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(cleaned);
-    const allowed = ['navigate', 'search', 'scroll', 'extract'];
+    const allowed = ['navigate', 'search', 'scroll', 'extract', 'click', 'type', 'wait'];
     if (parsed.action && !allowed.includes(parsed.action.type)) parsed.action = null;
     return { reply: String(parsed.reply || 'আমি কীভাবে সাহায্য করতে পারি?'), action: parsed.action || null };
   } catch (err) {
