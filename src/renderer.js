@@ -151,8 +151,11 @@ async function loadHistory() {
 }
 (async () => {
   const settings = await window.smartAI.getSettings(); provider = settings.provider || 'openai'; $('provider').value = provider;
+  $('geminiKey').value = settings.geminiKey || '';
+  $('openaiKey').value = settings.openaiKey || '';
 })();
 $('saveSettings').onclick = async () => {
-  provider = $('provider').value; await window.smartAI.saveSettings({ provider });
+  provider = $('provider').value;
+  await window.smartAI.saveSettings({ provider, geminiKey: $('geminiKey').value.trim(), openaiKey: $('openaiKey').value.trim() });
   $('settingsStatus').textContent = 'Settings saved.';
 };
