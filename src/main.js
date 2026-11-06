@@ -51,7 +51,11 @@ app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(
 
 ipcMain.handle('settings:get', () => readJson(settingsPath, { provider: process.env.AI_PROVIDER || 'openai' }));
 ipcMain.handle('settings:save', (_e, settings) => {
-  const safe = { provider: settings.provider === 'gemini' ? 'gemini' : 'openai' };
+  const safe = {
+    provider: settings.provider === 'gemini' ? 'gemini' : 'openai',
+    geminiKey: String(settings.geminiKey || '').trim().slice(0, 200),
+    openaiKey: String(settings.openaiKey || '').trim().slice(0, 200)
+  };
   writeJson(settingsPath, safe);
   return { ok: true };
 });
@@ -89,8 +93,8 @@ Never propose clicking, submitting forms, purchases, payments, deleting, sending
   try {
     let raw = '';
     if (provider === 'gemini') {
-      const key = process.env.GEMINI_API_KEY;
-      if (!key) return { error: 'GEMINI_API_KEY পাওয়া যায়নি। .env ফাইলে API key যোগ করুন।' };
+      const key = readJson(settingsPath, {}).geminiKey || process.env.GEMINI_API_KEY;
+      if (!key) return { error: 'Gemini API key পাওয়া যায়নি। Settings-এ Gemini API Key বসাও (ফ্রি key: aistudio.google.com)।' };
       const prompt = system + '\n\n' + messages.slice(1).map(m => `${m.role}: ${m.content}`).join('\n');
       const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
@@ -101,8 +105,8 @@ Never propose clicking, submitting forms, purchases, payments, deleting, sending
       if (!response.ok) throw new Error(data.error?.message || 'Gemini API error');
       raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     } else {
-      const key = process.env.OPENAI_API_KEY;
-      if (!key) return { error: 'OPENAI_API_KEY পাওয়া যায়নি। .env ফাইলে API key যোগ করুন।' };
+      const key = readJson(settingsPath, {}).openaiKey || process.env.OPENAI_API_KEY;
+      if (!key) return { error: 'OpenAI API key পাওয়া যায়নি। Settings-এ OpenAI API Key বসাও।' };
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
         body: JSON.stringify({ model: process.env.OPENAI_MODEL || 'gpt-4o-mini', messages, temperature: 0.3 })
