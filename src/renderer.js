@@ -1,6 +1,7 @@
 const $ = id => document.getElementById(id);
 const webview = $('browserView');
 let provider = 'openai';
+let autoRun = false;
 let pendingAction = null;
 let chatMessages = [];
 let currentTab = 1;
@@ -19,7 +20,6 @@ function showPanel(name) {
 }
 document.querySelectorAll('[data-panel]').forEach(b => b.addEventListener('click', () => showPanel(b.dataset.panel)));
 const SOCIAL_URLS = { facebook: 'https://www.facebook.com', youtube: 'https://www.youtube.com', instagram: 'https://www.instagram.com' };
-document.querySelectorAll('[data-social]').forEach(b => b.addEventListener('click', () => { showPanel('social'); navigate(SOCIAL_URLS[b.dataset.social]); }));
 
 function normalizeUrl(value) {
   const v = value.trim();
@@ -64,7 +64,7 @@ function addMessage(role, text, action) {
   if (action) {
     const proposal = document.createElement('div');
     proposal.className = 'action-proposal';
-    const label = action.type === 'navigate' ? `Open: ${action.url}` : action.type === 'search' ? `Search: ${action.query}` : action.type === 'scroll' ? 'Scroll page' : 'Read page text';
+    const label = action.type === 'navigate' ? `Open: ${action.url}` : action.type === 'search' ? `Search: ${action.query}` : action.type === 'scroll' ? 'Scroll page' : action.type === 'click' ? `Click: ${action.text}` : action.type === 'type' ? `Type in "${action.text}": ${action.value}` : action.type === 'wait' ? `Wait ${action.seconds || 3}s` : 'Read page text';
     const desc = document.createElement('div'); desc.textContent = 'প্রস্তাবিত কাজ: ' + label;
     const btn = document.createElement('button'); btn.textContent = 'Review & approve';
     btn.onclick = () => proposeAction(action);
@@ -78,25 +78,84 @@ function proposeAction(action) {
   pendingAction = action;
   $('actionDescription').textContent = action.type === 'navigate' ? `এই ওয়েবসাইট খুলতে চান? ${action.url}` :
     action.type === 'search' ? `Google-এ এই বিষয়টি খুঁজতে চান? ${action.query}` :
-    action.type === 'scroll' ? 'বর্তমান পেজ নিচে স্ক্রল করা হবে।' : 'বর্তমান ওয়েবপেজের দৃশ্যমান লেখা পড়া হবে।';
+    action.type === 'scroll' ? 'বর্তমান পেজ নিচে স্ক্রল করা হবে।' :
+    action.type === 'click' ? `পেজের এই বোতাম/লিংকে ক্লিক করা হবে: ${action.text}` :
+    action.type === 'type' ? `পেজের "${action.text}" জায়গায় লেখা হবে: ${action.value}` :
+    action.type === 'wait' ? `${action.seconds || 3} সেকেন্ড অপেক্ষা করা হবে।` : 'বর্তমান ওয়েবপেজের দৃশ্যমান লেখা পড়া হবে।';
   $('actionModal').classList.remove('hidden');
+}
+async function runAction(action) {
+  if (action.type === 'navigate') { navigate(action.url); return 'খোলা হয়েছে: ' + action.url; }
+  if (action.type === 'search') { navigate('https://www.google.com/search?q=' + encodeURIComponent(action.query)); return 'খোঁজা হয়েছে: ' + action.query; }
+  if (action.type === 'scroll') { await webview.executeJavaScript('window.scrollBy({top: Math.max(400, window.innerHeight * 0.75), behavior: "smooth"})'); return 'পেজ স্ক্রল করা হয়েছে'; }
+  if (action.type === 'extract') {
+    const text = await webview.executeJavaScript('document.body ? document.body.innerText.slice(0, 7000) : ""');
+    return text || '(পেজে কোনো লেখা পাওয়া যায়নি)';
+  }
+  if (action.type === 'click') {
+    const res = await webview.executeJavaScript(`(() => {
+      const t = ${JSON.stringify((action.text || '').toLowerCase())};
+      const els = [...document.querySelectorAll('a,button,[role="button"],input[type="submit"],input[type="button"]')];
+      const el = els.find(e => (e.innerText || e.value || '').trim().toLowerCase().includes(t)) || els.find(e => (e.getAttribute('aria-label') || '').toLowerCase().includes(t));
+      if (!el) return 'NOTFOUND';
+      el.click();
+      return 'OK:' + (el.innerText || el.value || '').trim().slice(0, 80);
+    })()`);
+    if (res === 'NOTFOUND') throw new Error('এই বোতাম/লিংক পেজে পাওয়া যায়নি: ' + action.text);
+    return 'ক্লিক করা হয়েছে: ' + String(res).slice(3);
+  }
+  if (action.type === 'type') {
+    const res = await webview.executeJavaScript(`(() => {
+      const hint = ${JSON.stringify((action.text || '').toLowerCase())};
+      const els = [...document.querySelectorAll('input[type="text"],input[type="search"],input:not([type]),textarea')].filter(e => e.offsetParent !== null);
+      const el = els.find(e => ((e.placeholder || '') + ' ' + (e.getAttribute('aria-label') || '') + ' ' + (e.name || '') + ' ' + (e.id || '')).toLowerCase().includes(hint)) || els[0];
+      if (!el) return 'NOTFOUND';
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      setter.call(el, ${JSON.stringify(String(action.value || ''))});
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+      el.focus();
+      if (el.form) { try { el.form.requestSubmit ? el.form.requestSubmit() : el.form.submit(); } catch {} }
+      return 'OK';
+    })()`);
+    if (res === 'NOTFOUND') throw new Error('লেখার জায়গা পেজে পাওয়া যায়নি: ' + action.text);
+    return 'লেখা হয়েছে: ' + action.value;
+  }
+  if (action.type === 'wait') { await new Promise(r => setTimeout(r, Math.min(30, action.seconds || 3) * 1000)); return 'অপেক্ষা করা হয়েছে ' + (action.seconds || 3) + ' সেকেন্ড'; }
+  throw new Error('অজানা action: ' + action.type);
 }
 $('cancelAction').onclick = () => { pendingAction = null; $('actionModal').classList.add('hidden'); };
 $('approveAction').onclick = async () => {
   if (!pendingAction) return;
   const action = pendingAction; pendingAction = null; $('actionModal').classList.add('hidden');
   try {
-    if (action.type === 'navigate') navigate(action.url);
-    if (action.type === 'search') navigate('https://www.google.com/search?q=' + encodeURIComponent(action.query));
-    if (action.type === 'scroll') await webview.executeJavaScript('window.scrollBy({top: Math.max(400, window.innerHeight * 0.75), behavior: "smooth"})');
-    if (action.type === 'extract') {
-      const text = await webview.executeJavaScript('document.body.innerText.slice(0, 7000)');
-      addMessage('ai', 'ওয়েবপেজের দৃশ্যমান লেখা:\n' + text.slice(0, 4500));
-    }
+    const out = await runAction(action);
+    if (action.type === 'extract') addMessage('ai', 'ওয়েবপেজের দৃশ্যমান লেখা:\n' + out.slice(0, 4500));
     $('browserStatus').textContent = 'Approved action executed';
     window.smartAI.addHistory({ type: 'AI action', detail: action.type });
   } catch (e) { addMessage('ai', 'কাজটি করা যায়নি: ' + e.message); }
 };
+
+// AI নিজে একটার পর একটা ধাপ চালায় (auto-run অন থাকলে) — সর্বোচ্চ ৫ ধাপ
+async function agentLoop(firstAction) {
+  let action = firstAction;
+  for (let step = 0; step < 5 && action; step++) {
+    let outcome = '';
+    try { outcome = await runAction(action); }
+    catch (e) { addMessage('ai', 'কাজটি করা যায়নি: ' + e.message); break; }
+    window.smartAI.addHistory({ type: 'AI action', detail: action.type });
+    await new Promise(r => setTimeout(r, 1200));
+    let pageText = '';
+    try { pageText = await webview.executeJavaScript('document.body ? document.body.innerText.slice(0, 4000) : ""'); } catch {}
+    const followUp = `আগের কাজের ফল: ${outcome}\nএখন পেজে যা দেখা যাচ্ছে:\n${pageText}\nপরের ধাপ কী? দরকার হলে আরেকটা action দাও, না হলে action ছাড়া উত্তর দাও।`;
+    chatMessages.push({ role: 'user', content: followUp });
+    const next = await window.smartAI.chat({ provider, messages: chatMessages });
+    if (next.error) { addMessage('ai', next.error); break; }
+    addMessage('ai', next.reply, next.action);
+    chatMessages.push({ role: 'assistant', content: next.reply });
+    action = next.action;
+  }
+}
 
 async function sendMessage(text) {
   const value = (text || $('prompt').value).trim();
@@ -110,6 +169,7 @@ async function sendMessage(text) {
     if (result.error) { addMessage('ai', result.error); return; }
     addMessage('ai', result.reply, result.action);
     chatMessages.push({ role: 'assistant', content: result.reply });
+    if (result.action && autoRun) await agentLoop(result.action);
   } finally { $('send').disabled = false; }
 }
 $('send').onclick = () => sendMessage();
@@ -156,13 +216,27 @@ async function loadHistory() {
 }
 (async () => {
   const settings = await window.smartAI.getSettings(); provider = settings.provider || 'openai'; $('provider').value = provider;
+  autoRun = !!settings.autoRun; $('autoRun').checked = autoRun;
   $('geminiKey').value = settings.geminiKey || '';
+  try { $('appVersion').textContent = await window.smartAI.getVersion(); } catch {}
+  window.smartAI.onUpdateStatus(msg => { $('updateStatus').textContent = msg; });
+  window.smartAI.onUpdateDownloaded(() => {
+    $('updateStatus').textContent = 'নতুন ভার্সন ডাউনলোড হয়ে গেছে!';
+    $('restartUpdate').classList.remove('hidden');
+  });
+  $('checkUpdates').onclick = async () => {
+    $('updateStatus').textContent = 'আপডেট চেক করা হচ্ছে…';
+    const r = await window.smartAI.checkForUpdates();
+    if (r && r.error) $('updateStatus').textContent = r.error;
+  };
+  $('restartUpdate').onclick = () => window.smartAI.restartToUpdate();
   $('geminiModel').value = settings.geminiModel || 'gemini-3.8-flash';
   $('openaiKey').value = settings.openaiKey || '';
 })();
 $('saveSettings').onclick = async () => {
   provider = $('provider').value;
-  await window.smartAI.saveSettings({ provider, geminiKey: $('geminiKey').value.trim(), geminiModel: $('geminiModel').value.trim(), openaiKey: $('openaiKey').value.trim() });
+  autoRun = $('autoRun').checked;
+  await window.smartAI.saveSettings({ provider, geminiKey: $('geminiKey').value.trim(), geminiModel: $('geminiModel').value.trim(), openaiKey: $('openaiKey').value.trim(), autoRun });
   $('settingsStatus').textContent = 'Settings saved.';
 };
 
