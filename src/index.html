@@ -12,6 +12,10 @@
     <button class="rail-btn" title="Tasks" data-panel="tasks">▣</button>
     <button class="rail-btn" title="History" data-panel="history">◷</button>
     <button class="rail-btn" title="Settings" data-panel="settings">⚙</button>
+    <button class="rail-btn" title="Social" data-panel="social">📣</button>
+    <button class="rail-btn" title="Facebook" data-social="facebook">f</button>
+    <button class="rail-btn" title="YouTube" data-social="youtube">▶</button>
+    <button class="rail-btn" title="Instagram" data-social="instagram">◎</button>
     <div class="rail-bottom">AI</div>
   </aside>
   <section class="assistant">
@@ -24,6 +28,7 @@
       <button class="panel-tab" data-panel="tasks">Tasks</button>
       <button class="panel-tab" data-panel="history">History</button>
       <button class="panel-tab" data-panel="settings">Settings</button>
+      <button class="panel-tab" data-panel="social">Social</button>
     </div>
     <main id="chatPanel" class="panel active">
       <div class="welcome">
@@ -57,6 +62,22 @@
       <p class="muted">API key শুধু তোমার কম্পিউটারে সংরক্ষিত থাকে, কোথাও পাঠানো হয় না। ফ্রি Gemini key: aistudio.google.com → Create API key।</p>
       <button id="saveSettings" class="primary">Save settings</button><p id="settingsStatus" class="muted"></p>
       <div class="notice">নিরাপত্তা: AI নিজে থেকে পেমেন্ট, কেনাকাটা, মেসেজ পাঠানো বা অ্যাকাউন্ট সেটিংস পরিবর্তন করবে না।</div>
+    </section>
+    <section id="socialPanel" class="panel hidden">
+      <div class="section-title"><h2>অটো পোস্ট — Social</h2><span class="pill">Facebook · YouTube · Instagram</span></div>
+      <p class="muted">প্ল্যাটফর্মে Connect করো, AI দিয়ে ক্যাপশন বানাও, পোস্ট লিখে এখনই পোস্ট করো বা কিউতে রাখো। টোকেন শুধু তোমার কম্পিউটারে থাকে।</p>
+      <div id="platformCards" class="social-grid"></div>
+      <label>ক্যাপশনের বিষয়<input id="captionTopic" placeholder="যেমন: নতুন ডিজাইন অফার"></label>
+      <button id="makeCaption" class="primary">✧ AI ক্যাপশন বানাও</button>
+      <div id="captionOut" class="item-list"></div>
+      <label>পোস্টের লেখা<textarea id="postText" placeholder="পোস্টের ক্যাপশন লেখো..."></textarea></label>
+      <label>ছবির লিংক (Instagram-এর জন্য দরকার)<input id="postImage" placeholder="https://...jpg"></label>
+      <label>প্ল্যাটফর্ম<select id="postPlatform"><option value="facebook">Facebook</option><option value="instagram">Instagram</option><option value="youtube">YouTube</option></select></label>
+      <button id="publishNow" class="primary">🚀 এখন পোস্ট করো</button>
+      <button id="queuePost" class="secondary">＋ কিউতে যোগ করো</button>
+      <p id="publishStatus" class="muted"></p>
+      <div class="section-title"><h2>পাবলিশ কিউ</h2></div>
+      <div id="queueList" class="item-list"></div>
     </section>
     <footer class="composer">
       <textarea id="prompt" rows="1" placeholder="Message Smart AI..."></textarea>
