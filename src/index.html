@@ -13,9 +13,6 @@
     <button class="rail-btn" title="History" data-panel="history">◷</button>
     <button class="rail-btn" title="Settings" data-panel="settings">⚙</button>
     <button class="rail-btn" title="Social" data-panel="social">📣</button>
-    <button class="rail-btn" title="Facebook" data-social="facebook">f</button>
-    <button class="rail-btn" title="YouTube" data-social="youtube">▶</button>
-    <button class="rail-btn" title="Instagram" data-social="instagram">◎</button>
     <div class="rail-bottom">AI</div>
   </aside>
   <section class="assistant">
@@ -59,8 +56,13 @@
       <label>Gemini API Key<input id="geminiKey" type="password" placeholder="AIza... — aistudio.google.com থেকে ফ্রি key" autocomplete="off"></label>
       <label>Gemini Model<input id="geminiModel" type="text" placeholder="gemini-3.8-flash" autocomplete="off"></label>
       <label>OpenAI API Key<input id="openaiKey" type="password" placeholder="sk-... (ঐচ্ছিক)" autocomplete="off"></label>
+      <label><input id="autoRun" type="checkbox" style="width:auto"> AI নিজে ব্রাউজার চালাবে (অনুমতি না চেয়ে — সাইট খোলা, ক্লিক, লেখা টাইপ)</label>
       <p class="muted">API key শুধু তোমার কম্পিউটারে সংরক্ষিত থাকে, কোথাও পাঠানো হয় না। ফ্রি Gemini key: aistudio.google.com → Create API key।</p>
       <button id="saveSettings" class="primary">Save settings</button><p id="settingsStatus" class="muted"></p>
+      <p class="muted">অ্যাপ ভার্সন: <span id="appVersion">…</span></p>
+      <button id="checkUpdates" class="secondary">আপডেট চেক করো</button>
+      <p id="updateStatus" class="muted"></p>
+      <button id="restartUpdate" class="primary hidden">রিস্টার্ট দিয়ে আপডেট করো</button>
       <div class="notice">নিরাপত্তা: AI নিজে থেকে পেমেন্ট, কেনাকাটা, মেসেজ পাঠানো বা অ্যাকাউন্ট সেটিংস পরিবর্তন করবে না।</div>
     </section>
     <section id="socialPanel" class="panel hidden">
