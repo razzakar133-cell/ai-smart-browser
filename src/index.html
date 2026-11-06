@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AI Smart Browser</title><link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="rail">
+    <div class="brand-mark">✦</div>
+    <button class="rail-btn active" title="Chats" data-panel="chat">◉</button>
+    <button class="rail-btn" title="Tasks" data-panel="tasks">▣</button>
+    <button class="rail-btn" title="History" data-panel="history">◷</button>
+    <button class="rail-btn" title="Settings" data-panel="settings">⚙</button>
+    <div class="rail-bottom">AI</div>
+  </aside>
+  <section class="assistant">
+    <header class="assistant-head">
+      <div><div class="eyebrow">PERSONAL AI AGENT</div><h1>Smart Assistant</h1></div>
+      <span class="online"><i></i> Online</span>
+    </header>
+    <div class="panel-tabs">
+      <button class="panel-tab active" data-panel="chat">Chat</button>
+      <button class="panel-tab" data-panel="tasks">Tasks</button>
+      <button class="panel-tab" data-panel="history">History</button>
+      <button class="panel-tab" data-panel="settings">Settings</button>
+    </div>
+    <main id="chatPanel" class="panel active">
+      <div class="welcome">
+        <div class="orb">✦</div><h2>কী করতে পারি আপনার জন্য?</h2>
+        <p>বাংলায় নির্দেশ দিন। আমি পরিকল্পনা করব এবং নিরাপদ ব্রাউজার অ্যাকশন প্রস্তাব করব।</p>
+        <div class="quick-grid">
+          <button class="quick" data-prompt="Google খুলে দাও">🌐 Google খোলো</button>
+          <button class="quick" data-prompt="Fiverr সম্পর্কে তথ্য খুঁজে দাও">⌕ Fiverr খুঁজুন</button>
+          <button class="quick" data-prompt="এই ওয়েবপেজের সারাংশ তৈরি করো">✧ পেজের সারাংশ</button>
+          <button class="quick" data-prompt="আমার কাজের জন্য একটি পরিকল্পনা তৈরি করো">▤ কাজের পরিকল্পনা</button>
+        </div>
+      </div>
+      <div id="messages" class="messages"></div>
+    </main>
+    <section id="tasksPanel" class="panel hidden">
+      <div class="section-title"><h2>Scheduled Tasks</h2><span class="pill">Local</span></div>
+      <p class="muted">এখানে কাজ সংরক্ষণ করতে পারবেন। এই প্রথম সংস্করণে টাস্কগুলো সংরক্ষিত থাকবে; স্বয়ংক্রিয়ভাবে চালানোর জন্য পরবর্তী scheduler integration প্রয়োজন।</p>
+      <label>Task name<input id="taskTitle" placeholder="যেমন: প্রতিদিন Fiverr চেক"></label>
+      <label>Instruction<textarea id="taskPrompt" placeholder="কী কাজ করতে হবে লিখুন"></textarea></label>
+      <label>Schedule<select id="taskSchedule"><option>Manual</option><option>Daily</option><option>Weekly</option></select></label>
+      <button id="addTask" class="primary">＋ Save task</button>
+      <div id="taskList" class="item-list"></div>
+    </section>
+    <section id="historyPanel" class="panel hidden"><div class="section-title"><h2>Activity History</h2></div><div id="historyList" class="item-list"></div></section>
+    <section id="settingsPanel" class="panel hidden">
+      <div class="section-title"><h2>AI Settings</h2></div>
+      <label>AI Provider<select id="provider"><option value="openai">OpenAI</option><option value="gemini">Google Gemini</option></select></label>
+      <p class="muted">API key নিরাপদে আপনার কম্পিউটারের .env ফাইলে রাখুন। এই সেটিং শুধু provider নির্বাচন সংরক্ষণ করে।</p>
+      <button id="saveSettings" class="primary">Save settings</button><p id="settingsStatus" class="muted"></p>
+      <div class="notice">নিরাপত্তা: AI নিজে থেকে পেমেন্ট, কেনাকাটা, মেসেজ পাঠানো বা অ্যাকাউন্ট সেটিংস পরিবর্তন করবে না।</div>
+    </section>
+    <footer class="composer">
+      <textarea id="prompt" rows="1" placeholder="Message Smart AI..."></textarea>
+      <button id="voice" class="icon-btn" title="Voice input">🎙</button>
+      <button id="send" class="send-btn" title="Send">➤</button>
+    </footer>
+  </section>
+  <section class="browser">
+    <header class="browser-top">
+      <div class="browser-title"><span class="globe">◎</span><div><b>Smart Browser</b><small>Private browsing workspace</small></div></div>
+      <div class="browser-actions"><button id="takeControl" class="control-btn">Browser ready</button><button id="newTab" class="square-btn">＋</button></div>
+    </header>
+    <div id="tabStrip" class="tab-strip"><button class="tab active">🌐 New Tab</button></div>
+    <div class="nav-bar">
+      <button id="back" class="nav-btn">‹</button><button id="forward" class="nav-btn">›</button><button id="reload" class="nav-btn">↻</button>
+      <input id="address" value="https://www.google.com" aria-label="Address bar">
+      <button id="go" class="go-btn">Go</button>
+    </div>
+    <div class="webview-wrap" id="webviewWrap">
+      <div class="browser-start" id="browserStart">
+        <div class="start-logo">✦</div><h2>Browse smarter.</h2><p>একটি ওয়েবসাইট খুলুন অথবা AI-কে নির্দেশ দিন।</p>
+        <div class="start-search"><input id="startAddress" placeholder="Search Google or enter website address"><button id="startGo">→</button></div>
+        <div class="shortcut-row"><button data-url="https://www.google.com">Google</button><button data-url="https://www.fiverr.com">Fiverr</button><button data-url="https://www.youtube.com">YouTube</button><button data-url="https://github.com">GitHub</button></div>
+      </div>
+      <webview id="browserView" src="https://www.google.com" partition="persist:smart-browser" allowpopups></webview>
+    </div>
+    <footer class="browser-status"><span id="browserStatus">Ready</span><span>AI Smart Browser · Hybrid Edition</span></footer>
+  </section>
+</div>
+<div id="actionModal" class="modal hidden"><div class="modal-card"><div class="modal-icon">✦</div><h3>AI action proposal</h3><p id="actionDescription"></p><div class="modal-actions"><button id="cancelAction" class="secondary">Cancel</button><button id="approveAction" class="primary">Approve & run</button></div></div></div>
+<script src="renderer.js"></script>
+</body></html>
