@@ -14,6 +14,7 @@
   "build": {
     "appId": "com.smartai.browser",
     "productName": "AI Smart Browser",
+    "publish": null,
     "directories": {
       "output": "release"
     },
