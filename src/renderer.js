@@ -11,11 +11,15 @@ function showPanel(name) {
   $('tasksPanel').classList.toggle('hidden', name !== 'tasks');
   $('historyPanel').classList.toggle('hidden', name !== 'history');
   $('settingsPanel').classList.toggle('hidden', name !== 'settings');
+  $('socialPanel').classList.toggle('hidden', name !== 'social');
   document.querySelectorAll('[data-panel]').forEach(b => b.classList.toggle('active', b.dataset.panel === name));
   if (name === 'tasks') loadTasks();
   if (name === 'history') loadHistory();
+  if (name === 'social') loadSocial();
 }
 document.querySelectorAll('[data-panel]').forEach(b => b.addEventListener('click', () => showPanel(b.dataset.panel)));
+const SOCIAL_URLS = { facebook: 'https://www.facebook.com', youtube: 'https://www.youtube.com', instagram: 'https://www.instagram.com' };
+document.querySelectorAll('[data-social]').forEach(b => b.addEventListener('click', () => { showPanel('social'); navigate(SOCIAL_URLS[b.dataset.social]); }));
 
 function normalizeUrl(value) {
   const v = value.trim();
@@ -160,4 +164,102 @@ $('saveSettings').onclick = async () => {
   provider = $('provider').value;
   await window.smartAI.saveSettings({ provider, geminiKey: $('geminiKey').value.trim(), geminiModel: $('geminiModel').value.trim(), openaiKey: $('openaiKey').value.trim() });
   $('settingsStatus').textContent = 'Settings saved.';
+};
+
+// ---------- Social / Auto-post ----------
+const SOCIAL_NAMES = { facebook: 'Facebook', youtube: 'YouTube', instagram: 'Instagram' };
+const SOCIAL_HINTS = {
+  facebook: 'Facebook Page Token — developers.facebook.com → Graph API Explorer থেকে নাও (ফ্রি)।',
+  youtube: 'API Key — console.cloud.google.com থেকে নাও (ফ্রি)। ভিডিও আপলোড ব্রাউজারে হবে।',
+  instagram: 'Access Token — developers.facebook.com থেকে নাও (ফ্রি)। ছবির লিংক দরকার।'
+};
+let social = { tokens: {}, igUserId: '', queue: [] };
+async function loadSocial() {
+  social = await window.smartAI.getSocial();
+  renderPlatforms(); renderQueue();
+}
+function renderPlatforms() {
+  const wrap = $('platformCards'); wrap.innerHTML = '';
+  ['facebook', 'youtube', 'instagram'].forEach(p => {
+    const card = document.createElement('div'); card.className = 'platform-card';
+    const connected = !!(social.tokens && social.tokens[p]);
+    const title = document.createElement('b'); title.textContent = SOCIAL_NAMES[p] + ' ';
+    const status = document.createElement('span'); status.className = connected ? 'status-ok' : 'status-no';
+    status.textContent = connected ? '● সংযুক্ত' : '○ সংযুক্ত নয়';
+    const hint = document.createElement('p'); hint.className = 'muted'; hint.textContent = SOCIAL_HINTS[p];
+    const input = document.createElement('input'); input.type = 'password'; input.placeholder = 'টোকেন / API Key বসাও'; input.value = (social.tokens && social.tokens[p]) || ''; input.autocomplete = 'off';
+    card.append(title, status, hint, input);
+    if (p === 'instagram') {
+      const idInput = document.createElement('input'); idInput.placeholder = 'Instagram User ID'; idInput.value = social.igUserId || '';
+      idInput.onchange = async () => { social.igUserId = idInput.value.trim(); await window.smartAI.saveSocial(social); };
+      card.appendChild(idInput);
+    }
+    const row = document.createElement('div'); row.style.marginTop = '8px';
+    const openBtn = document.createElement('button'); openBtn.className = 'secondary'; openBtn.textContent = 'খোলো';
+    openBtn.onclick = () => navigate(SOCIAL_URLS[p]);
+    const saveBtn = document.createElement('button'); saveBtn.className = 'primary'; saveBtn.textContent = connected ? 'আপডেট' : 'Connect';
+    saveBtn.style.marginLeft = '6px';
+    saveBtn.onclick = async () => {
+      social.tokens = social.tokens || {}; social.tokens[p] = input.value.trim();
+      await window.smartAI.saveSocial(social); renderPlatforms();
+    };
+    const disBtn = document.createElement('button'); disBtn.className = 'secondary'; disBtn.textContent = 'Disconnect'; disBtn.style.marginLeft = '6px';
+    disBtn.onclick = async () => { social.tokens = social.tokens || {}; social.tokens[p] = ''; await window.smartAI.saveSocial(social); renderPlatforms(); };
+    row.append(openBtn, saveBtn, disBtn); card.appendChild(row);
+    wrap.appendChild(card);
+  });
+}
+function renderQueue() {
+  const list = $('queueList'); list.innerHTML = '';
+  const q = social.queue || [];
+  if (!q.length) { list.textContent = 'কিউ খালি।'; return; }
+  q.forEach(item => {
+    const el = document.createElement('div'); el.className = 'list-item';
+    const b = document.createElement('b'); b.textContent = SOCIAL_NAMES[item.platform] + ' · ' + (item.status === 'posted' ? 'পোস্ট হয়েছে' : 'অপেক্ষায়');
+    const p = document.createElement('p'); p.textContent = item.text.slice(0, 120);
+    const pub = document.createElement('button'); pub.textContent = 'পোস্ট করো';
+    pub.style.cssText = 'background:#2767d8;color:#fff;padding:7px 10px;border-radius:8px;margin-right:6px';
+    pub.onclick = () => doPublish(true, item);
+    const del = document.createElement('button'); del.textContent = 'Delete';
+    del.onclick = async () => { social.queue = social.queue.filter(x => x.id !== item.id); await window.smartAI.saveSocial(social); renderQueue(); };
+    el.append(b, p, pub, del); list.appendChild(el);
+  });
+}
+$('makeCaption').onclick = async () => {
+  const topic = $('captionTopic').value.trim();
+  if (!topic) return alert('ক্যাপশনের বিষয় লেখো।');
+  const out = $('captionOut'); out.innerHTML = '<p class="muted">ক্যাপশন বানানো হচ্ছে…</p>';
+  const result = await window.smartAI.caption(topic);
+  out.innerHTML = '';
+  if (result.error) { out.textContent = result.error; return; }
+  const item = document.createElement('div'); item.className = 'list-item';
+  const p = document.createElement('p'); p.textContent = result.text;
+  const use = document.createElement('button'); use.textContent = 'পোস্টে ব্যবহার করো';
+  use.style.cssText = 'background:#2767d8;color:#fff;padding:7px 10px;border-radius:8px;margin-top:8px';
+  use.onclick = () => { $('postText').value = result.text; };
+  item.append(p, use); out.appendChild(item);
+};
+async function doPublish(fromQueue, item) {
+  const platform = fromQueue ? item.platform : $('postPlatform').value;
+  const text = fromQueue ? item.text : $('postText').value.trim();
+  const imageUrl = fromQueue ? item.imageUrl : $('postImage').value.trim();
+  if (!text) return alert('পোস্টের লেখা লেখো।');
+  $('publishStatus').textContent = 'পোস্ট করা হচ্ছে…';
+  const result = await window.smartAI.publishPost({ platform, text, imageUrl, token: (social.tokens && social.tokens[platform]) || '', igUserId: social.igUserId || '' });
+  if (result.action === 'open') { navigate(result.url); $('publishStatus').textContent = result.note; return; }
+  if (result.error) { $('publishStatus').textContent = result.error; return; }
+  $('publishStatus').textContent = result.note || 'পোস্ট হয়েছে!';
+  window.smartAI.addHistory({ type: 'Social post', detail: platform + ' · ' + text.slice(0, 60) });
+  if (fromQueue) { item.status = 'posted'; await window.smartAI.saveSocial(social); renderQueue(); }
+  else { $('postText').value = ''; $('postImage').value = ''; }
+}
+$('publishNow').onclick = () => doPublish(false);
+$('queuePost').onclick = async () => {
+  const text = $('postText').value.trim();
+  if (!text) return alert('পোস্টের লেখা লেখো।');
+  social.queue = social.queue || [];
+  social.queue.unshift({ id: Date.now().toString(), platform: $('postPlatform').value, text, imageUrl: $('postImage').value.trim(), at: new Date().toISOString(), status: 'queued' });
+  await window.smartAI.saveSocial(social);
+  $('postText').value = ''; $('postImage').value = '';
+  renderQueue();
 };
