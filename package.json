@@ -1,6 +1,6 @@
 {
   "name": "ai-smart-browser-hybrid",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Hybrid Chrome-style browser with a premium AI assistant panel",
   "main": "src/main.js",
   "repository": "github:razzakar133-cell/ai-smart-browser",
@@ -19,7 +19,8 @@
     "appId": "com.smartai.browser",
     "productName": "AI Smart Browser",
     "publish": {
-      "provider": "github"
+      "provider": "github",
+      "releaseType": "release"
     },
     "directories": {
       "output": "release"
